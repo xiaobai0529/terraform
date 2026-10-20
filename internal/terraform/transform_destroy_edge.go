@@ -17,16 +17,14 @@ type GraphNodeDestroyer interface {
 	// DestroyAddr is the address of the resource that is being
 	// destroyed by this node. If this returns nil, then this node
 	// is not destroying anything.
-	// FIXME: this should not be a pointer
-	DestroyAddr() *addrs.AbsResourceInstance
+	DestroyAddr() addrs.AbsResourceInstance
 }
 
 // GraphNodeCreator must be implemented by nodes that create OR update resources.
 type GraphNodeCreator interface {
 	dag.Vertex
 	// CreateAddr is the address of the resource being created or updated
-	// FIXME: this should not be a pointer
-	CreateAddr() *addrs.AbsResourceInstance
+	CreateAddr() addrs.AbsResourceInstance
 }
 
 // DestroyEdgeTransformer is a GraphTransformer that creates the proper
@@ -146,12 +144,7 @@ func (t *DestroyEdgeTransformer) Transform(g *Graph) error {
 	for v := range g.VerticesSeq() {
 		switch n := v.(type) {
 		case GraphNodeDestroyer:
-			addrP := n.DestroyAddr()
-			if addrP == nil {
-				log.Printf("[WARN] DestroyEdgeTransformer: %q (%T) has no destroy address", n.Name(), v)
-				continue
-			}
-			addr := *addrP
+			addr := n.DestroyAddr()
 
 			key := addr.String()
 			log.Printf("[TRACE] DestroyEdgeTransformer: %q (%T) destroys %s", n.Name(), v, key)
@@ -170,7 +163,7 @@ func (t *DestroyEdgeTransformer) Transform(g *Graph) error {
 			}
 
 			// NoOp changes should not participate in the destroy dependencies.
-			rc := t.Changes.ResourceInstance(*addr)
+			rc := t.Changes.ResourceInstance(addr)
 			if rc != nil && rc.Action != plans.NoOp {
 				creators.Put(cfgAddr, append(creators.Get(cfgAddr), n))
 			}
@@ -195,11 +188,7 @@ func (t *DestroyEdgeTransformer) Transform(g *Graph) error {
 		}
 
 		addr := creator.CreateAddr()
-		if addr == nil {
-			continue
-		}
-
-		for _, destroyer := range destroyers.Get(*addr) {
+		for _, destroyer := range destroyers.Get(addr) {
 			log.Printf(
 				"[TRACE] DestroyEdgeTransformer: connecting creator %q with destroyer %q",
 				creator.Name(), destroyer.Name())
